@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="sale_order_import_form_id" model="ir.ui.view">
+            <field name="name">sale.order.import.form</field>
+            <field name="model">sale.order.imports</field>
+            <field name="arch" type="xml">
+                <form string="Sales Import">
+                    <header>
+                        <button name="get_xls_values" class="oe_highlight" string="Run Query"
+                                type="object" attrs="{'invisible': [('state', '=', 'done')]}"/>
+                        <field name="state" widget="statusbar" statusbar_visible="new,done"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button class="oe_stat_button" type="object" name="compute_count" icon="fa-usd">
+                                <div class="o_form_field o_stat_info">
+                                    <span class="o_stat_text">Sales</span>
+                                    <span class="o_stat_value">
+                                        <field name="sale_order_ids_count" widget='monetary' readonly="1"/>
+                                    </span>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="state" invisible="1"/>
+                                <field name="file_path" attrs="{'readonly': [('state', '=', 'done')]}"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="sale_order_import_view_id" model="ir.ui.view">
+            <field name="name">sale.order.import.tree</field>
+            <field name="model">sale.order.imports</field>
+            <field name="arch" type="xml">
+                <tree string="Sales Import">
+                    <field name="name"/>
+                    <field name="state" readonly="1" decoration-warning="state == 'new'" decoration-success="state == 'done'" widget="badge"/>
+                    <field name="file_path" attrs="{'readonly': [('state', '=', 'done')]}"/>
+                </tree>
+            </field>
+        </record>
+
+        <record id="sale_order_import_search_view" model="ir.ui.view">
+            <field name="name">sale.order.import.search</field>
+            <field name="model">sale.order.imports</field>
+            <field name="arch" type="xml">
+                <search string="Sales Import">
+                    <group expand="1" string="Group By">
+                        <filter string="sequence number" name="name" domain="[]"
+                                context="{'group_by':'name'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="sale_order_import_act_window" model="ir.actions.act_window">
+            <field name="name">Sales Import</field>
+            <field name="res_model">sale.order.imports</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+              <p class="o_view_nocontent_smiling_face">
+                Create a Sales Import
+              </p>
+            </field>
+        </record>
+
+
+        <menuitem name="Sales Import"
+                  id="sale_order_import_menu"
+                  parent="sale.sale_order_menu"
+                  action="sale_order_import_act_window"/>
+
+    </data>
+</odoo>
