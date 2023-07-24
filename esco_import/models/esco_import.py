@@ -2,9 +2,11 @@ from odoo import fields, models, api, _
 from datetime import datetime
 import openpyxl
 from odoo.exceptions import UserError, ValidationError, AccessError
+from io import BytesIO
 import tempfile
 import base64
 import os
+
 
 class SalesImport(models.Model):
     _name = 'sale.order.imports'
@@ -23,11 +25,16 @@ class SalesImport(models.Model):
         ],
         default='new')
 
+    def unlink(self):
+        if self.state == 'done':
+            raise ValidationError('You can not delete a record in done state.')
+        elif self.state == 'new':
+            return super(SalesImport, self).unlink()
+
     def check_if_done_before(self):
         flag = False
-        sale_check = self.env['sale.order.imports'].search([('file_path', '=', self.file_path), ('state', '=', 'done')])
+        sale_check = self.env['sale.order.imports'].search([('file_upload', '=', self.file_upload), ('state', '=', 'done')])
         if sale_check:
-            print("####################", sale_check)
             flag = True
         elif not sale_check:
             flag = False
@@ -67,7 +74,8 @@ class SalesImport(models.Model):
     def get_xls_values(self):
 
         # Load the workbook
-        wb = openpyxl.load_workbook(self.file_path)
+        # wb = openpyxl.load_workbook(self.file_path)
+        wb = openpyxl.load_workbook(filename=BytesIO(base64.b64decode(self.file_upload)))
 
         # Select the active worksheet
         ws = wb.active
@@ -78,6 +86,7 @@ class SalesImport(models.Model):
         sale_order_heeader = []
         sale_order_line = []
         sale_order_count = 0
+        sale_order_id = 0
         list_of_sale_order_ids = []
 
         for row in ws.iter_rows():
@@ -102,6 +111,22 @@ class SalesImport(models.Model):
                     'origin': ws.cell(count, 26 - 6).value,
                 })
 
+            # check if sale order hold lines
+            if flag == True and ws.cell(order_lines, 26).value:
+                # get order lines
+                if ws.cell(order_lines, 26).value == ':خصم نوع الدفع %':
+                    flag = False
+
+                elif flag and ws.cell(order_lines, 26 - 7).value != '© برنامج مراقبة المبيعات ETI 2023':
+                    sale_order_line.append({
+                        'item_code': ws.cell(order_lines, 26).value,
+                        'item_name': ws.cell(order_lines, 26 - 7).value,
+                        'item_qty': ws.cell(order_lines, 26 - 9).value,
+                        'item_uom': ws.cell(order_lines, 26 - 11).value,
+                        'item_price': ws.cell(order_lines, 26 - 15).value,
+                    })
+                # print("Taxes :", ws.cell(order_lines, 26 - 18).value)
+
             #check if end of order
             if ws.cell(count, 26-1).value == ':خصم نوع الدفع %':
                 #set flag to false
@@ -112,6 +137,7 @@ class SalesImport(models.Model):
                     raise ValidationError('You created a query with the same path file before, are you sure to complete!.')
                     break
 
+                #create sale order details
                 for rec in sale_order_heeader:
                     so = self.env['sale.order'].create({
                         'partner_id': rec['customer_name'],
@@ -121,6 +147,7 @@ class SalesImport(models.Model):
                         'state': 'draft',
                         'sales_import_id': self.id,
                     })
+                    sale_order_id = so
 
                 for row in sale_order_line:
                     uom = self.env['uom.uom'].search([('name', '=', row['item_uom'])])
@@ -128,7 +155,7 @@ class SalesImport(models.Model):
                     sol_new = so.write({
                         'order_line': [
                             (0, 0, {
-                                'order_id': so.id,
+                                'order_id': sale_order_id.id,
                                 'name': row['item_name'],
                                 'product_id': product_templ.id,
                                 'product_uom_qty': row['item_qty'],
@@ -138,7 +165,7 @@ class SalesImport(models.Model):
                             })
                         ]
                     })
-                list_of_sale_order_ids.append(so.id)
+                list_of_sale_order_ids.append(sale_order_id.id)
 
 
 
@@ -146,18 +173,6 @@ class SalesImport(models.Model):
                 sale_order_heeader = []
                 sale_order_line = []
 
-            #check if sale order hold lines
-            if flag == True and ws.cell(order_lines, 26).value:
-
-                # get order lines
-                sale_order_line.append({
-                    'item_code': ws.cell(order_lines, 26).value,
-                    'item_name': ws.cell(order_lines, 26 - 7).value,
-                    'item_qty': ws.cell(order_lines, 26 - 9).value,
-                    'item_uom': ws.cell(order_lines, 26 - 11).value,
-                    'item_price': ws.cell(order_lines, 26 - 15).value,
-                })
-                # print("Taxes :", ws.cell(order_lines, 26 - 18).value)
 
         print("Sale Orders Count", sale_order_count)
         #count number of sale orders created
