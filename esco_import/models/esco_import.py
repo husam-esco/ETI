@@ -153,13 +153,6 @@ class SalesImport(models.Model):
                     print("origin :", rec['sale_order_date'])
                     uom = self.env['uom.uom'].search([('name', '=', row['item_uom'])])
                     product_templ = self.env['product.template'].search([('default_code', '=', row['item_code'])])
-                    
-                    print("SO ID :", sale_order_id.id)
-                    print("Itme name :", row['item_name'])
-                    print("product id :", product_templ.id)
-                    print("product_uom_qty :", row['item_qty'])
-                    print("product_uom :", uom.id)
-                    print("price_unit :", row['item_price'])
 
                     sol_new = so.write({
                         'order_line': [
